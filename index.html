@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>长图分割器</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --text: #eef2ff;
+      --muted: #a8b3cf;
+      --border: #2a3562;
+      --accent: #7aa2ff;
+      --danger: #ff8a8a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #09101c, #10162d 45%, #0f1730 100%);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 18px 40px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+      line-height: 1.1;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin: 0 0 22px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 420px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      position: sticky;
+      top: 20px;
+      align-self: start;
+    }
+
+    .right-col {
+      min-width: 0;
+      max-height: calc(100vh - 56px);
+      overflow-y: auto;
+      padding-right: 6px;
+    }
+
+    .right-col::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .right-col::-webkit-scrollbar-thumb {
+      background: #2a3562;
+      border-radius: 999px;
+    }
+
+    .card {
+      background: rgba(18, 25, 51, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(8px);
+    }
+
+    .result-card {
+      min-height: calc(100vh - 56px);
+    }
+
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: 18px;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .field label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    input[type="range"],
+    input[type="file"],
+    select {
+      width: 100%;
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr 88px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .value-pill {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #0f1730;
+      color: var(--text);
+      padding: 10px 12px;
+      text-align: center;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    select.value-pill {
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 11px 16px;
+      cursor: pointer;
+      font-weight: 600;
+      background: var(--accent);
+      color: #061124;
+    }
+
+    button.secondary {
+      background: #22305d;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .drop {
+      border: 1.5px dashed #4660ad;
+      background: rgba(16, 22, 45, 0.7);
+      border-radius: 18px;
+      padding: 26px;
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .drop.active {
+      border-color: #86a8ff;
+      background: rgba(30, 42, 80, 0.8);
+    }
+
+    .hint {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .status {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #162149;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+    }
+
+    .error-banner {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 138, 138, 0.35);
+      background: rgba(120, 20, 20, 0.18);
+      color: #ffd4d4;
+      font-size: 13px;
+      display: none;
+    }
+
+    .source-preview-wrap {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      background: #0d1430;
+      min-height: 240px;
+      max-height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .source-preview-wrap canvas {
+      width: auto;
+      max-width: 100%;
+      max-height: 280px;
+      height: auto;
+      display: block;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .source-preview-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .result-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .preview {
+      display: grid;
+      gap: 14px;
+    }
+
+    .piece {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      background: #0d1430;
+    }
+
+    .piece-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .piece-head-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .piece-head-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .piece canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: white;
+    }
+
+    .file-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .mini-btn {
+      border: 1px solid var(--border);
+      background: #162149;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mini-btn:hover {
+      background: #22305d;
+    }
+
+    .mini-btn[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .left-col {
+        position: static;
+      }
+
+      .right-col {
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+      }
+
+      .result-card {
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>长图分割器</h1>
+    <p class="sub">把一张长图快速切成多张小图。所有处理都在浏览器本地完成，不上传原图。</p>
+
+    <div class="grid">
+      <div class="left-col">
+        <section class="card">
+          <h2>参数设置</h2>
+          <div id="drop" class="drop">
+            <p><strong>把图片拖到这里</strong>，或直接点击下方选择文件</p>
+            <input id="fileInput" type="file" accept="image/*" />
+          </div>
+
+          <div class="field">
+            <label for="modeSelect">
+              <span>切分模式（推荐使用智能模式）</span>
+              <span>固定 / 智能</span>
+            </label>
+            <select id="modeSelect" class="value-pill">
+              <option value="smart" selected>智能横切（推荐）</option>
+              <option value="fixed">固定横切</option>
+            </select>
+            <div class="hint">智能模式只需要设置单张高度，系统会在默认切点附近自动寻找更合适的位置，尽量避开文字。固定模式会严格按高度切分，并允许你设置重叠高度。</div>
+          </div>
+
+          <div class="field">
+            <label for="chunkHeight">
+              <span>单张高度</span>
+              <span>控制每张图片的大致高度</span>
+            </label>
+            <div class="range-row">
+              <input id="chunkHeight" type="range" min="400" max="3000" step="50" value="1400" />
+              <div id="chunkHeightValue" class="value-pill">1400 px</div>
+            </div>
+          </div>
+
+          <div id="overlapField" class="field">
+            <label for="overlap">
+              <span>重叠高度（仅固定模式可用）</span>
+              <span>用于保留切边附近的内容</span>
+            </label>
+            <div class="range-row">
+              <input id="overlap" type="range" min="0" max="400" step="10" value="0" />
+              <div id="overlapValue" class="value-pill">0 px</div>
+            </div>
+          </div>
+
+          <div class="btns">
+            <button id="splitBtn" disabled>重新切分</button>
+            <button id="demoBtn" class="secondary">使用演示图片</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>预览</h2>
+          <div class="source-preview-wrap">
+            <canvas id="sourcePreviewCanvas"></canvas>
+            <div id="sourcePreviewEmpty" class="source-preview-empty">原图缩略预览会显示在这里</div>
+          </div>
+          <div class="hint" style="margin-top: 10px; margin-bottom: 14px;">这里显示原图缩略图，蓝色框表示实际切分范围。</div>
+          <div id="status" class="status">等待导入图片</div>
+          <div id="errorBanner" class="error-banner"></div>
+        </section>
+      </div>
+
+      <div class="right-col">
+        <section class="card result-card">
+          <div class="result-toolbar">
+            <h2 style="margin: 0;">切分结果</h2>
+            <div class="toolbar-actions">
+              <button id="downloadBtn" class="secondary" disabled>下载全部</button>
+              <button id="copyAllBtn" class="secondary" disabled>复制全部</button>
+            </div>
+          </div>
+          <div id="meta" class="meta">还没有导入图片。</div>
+          <div id="preview" class="preview"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script>
+    function must(id) {
+      const el = document.getElementById(id);
+      if (!el) {
+        throw new Error(`Missing required element: #${id}`);
+      }
+      return el;
+    }
+
+    const fileInput = must('fileInput');
+    const drop = must('drop');
+    const overlapField = must('overlapField');
+    const chunkHeightInput = must('chunkHeight');
+    const overlapInput = must('overlap');
+    const chunkHeightValue = must('chunkHeightValue');
+    const overlapValue = must('overlapValue');
+    const modeSelect = must('modeSelect');
+    const sourcePreviewCanvas = must('sourcePreviewCanvas');
+    const sourcePreviewEmpty = must('sourcePreviewEmpty');
+    const splitBtn = must('splitBtn');
+    const downloadBtn = must('downloadBtn');
+    const copyAllBtn = must('copyAllBtn');
+    const preview = must('preview');
+    const metaEl = must('meta');
+    const statusEl = must('status');
+    const demoBtn = must('demoBtn');
+    const errorBanner = must('errorBanner');
+
+    let loadedImage = null;
+    let pieces = [];
+    let sourceName = 'image';
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function showError(message) {
+      errorBanner.textContent = message;
+      errorBanner.style.display = 'block';
+    }
+
+    function hideError() {
+      errorBanner.textContent = '';
+      errorBanner.style.display = 'none';
+    }
+
+    function getSettings() {
+      const chunkHeight = Number(chunkHeightInput.value);
+      const overlapRaw = Number(overlapInput.value);
+      const mode = modeSelect.value || 'smart';
+      return {
+        chunkHeight: Number.isFinite(chunkHeight) ? chunkHeight : 1400,
+        overlap: mode === 'smart' ? 0 : (Number.isFinite(overlapRaw) ? overlapRaw : 0),
+        mode,
+      };
+    }
+
+    function syncLabels() {
+      const { chunkHeight, overlap } = getSettings();
+      chunkHeightValue.textContent = `${chunkHeight} px`;
+      overlapValue.textContent = `${overlap} px`;
+    }
+
+    function updateModeUI() {
+      overlapField.style.display = modeSelect.value === 'smart' ? 'none' : '';
+    }
+
+    function getCutRanges(imgHeight, targetChunkHeight, overlap) {
+      const safeChunk = Math.max(1, Math.floor(targetChunkHeight));
+      const safeOverlap = Math.max(0, Math.min(Math.floor(overlap), safeChunk - 1));
+      const ranges = [];
+
+      if (imgHeight <= safeChunk) {
+        ranges.push({ start: 0, end: imgHeight });
+        return ranges;
+      }
+
+      let start = 0;
+      while (start < imgHeight) {
+        const end = Math.min(start + safeChunk, imgHeight);
+        ranges.push({ start, end });
+        if (end >= imgHeight) {
+          break;
+        }
+        start = end - safeOverlap;
+      }
+
+      return ranges;
+    }
+
+    function getRowColorVariation(ctx, width, y) {
+      const row = ctx.getImageData(0, y, width, 1).data;
+      if (!row.length) {
+        return Number.POSITIVE_INFINITY;
+      }
+
+      let lastGray = null;
+      let diffSum = 0;
+      let darkPixels = 0;
+
+      for (let i = 0; i < row.length; i += 4) {
+        const r = row[i];
+        const g = row[i + 1];
+        const b = row[i + 2];
+        const a = row[i + 3];
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        if (a > 8 && gray < 235) {
+          darkPixels += 1;
+        }
+
+        if (lastGray !== null) {
+          diffSum += Math.abs(gray - lastGray);
+        }
+        lastGray = gray;
+      }
+
+      const avgDiff = diffSum / Math.max(1, width - 1);
+      const darkRatio = darkPixels / Math.max(1, width);
+      return avgDiff + darkRatio * 120;
+    }
+
+    function findSmartCutY(ctx, width, height, preferredY, searchRadius) {
+      const startY = Math.max(1, preferredY - searchRadius);
+      const endY = Math.min(height - 2, preferredY + searchRadius);
+      let bestY = preferredY;
+      let bestScore = Number.POSITIVE_INFINITY;
+      let bestDistance = Number.POSITIVE_INFINITY;
+
+      for (let y = startY; y <= endY; y += 1) {
+        let score = 0;
+        for (let k = -2; k <= 2; k += 1) {
+          const sampleY = Math.max(0, Math.min(height - 1, y + k));
+          score += getRowColorVariation(ctx, width, sampleY);
+        }
+        const distance = Math.abs(y - preferredY);
+        if (score < bestScore || (score === bestScore && distance < bestDistance)) {
+          bestScore = score;
+          bestDistance = distance;
+          bestY = y;
+        }
+      }
+
+      return bestY;
+    }
+
+    function getSmartCutRanges(img, targetChunkHeight, overlap) {
+      const safeChunk = Math.max(1, Math.floor(targetChunkHeight));
+      const safeOverlap = Math.max(0, Math.min(Math.floor(overlap), safeChunk - 1));
+      const searchRadius = Math.max(12, Math.min(80, Math.floor(Math.max(safeOverlap, 24) * 0.8 + 12)));
+      const ranges = [];
+      const analysisCanvas = document.createElement('canvas');
+      analysisCanvas.width = img.width;
+      analysisCanvas.height = img.height;
+      const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+      analysisCtx.drawImage(img, 0, 0);
+
+      if (img.height <= safeChunk) {
+        return [{ start: 0, end: img.height }];
+      }
+
+      let start = 0;
+      while (start < img.height) {
+        const preferredEnd = Math.min(start + safeChunk, img.height);
+        let end = preferredEnd;
+
+        if (preferredEnd < img.height) {
+          const smartY = findSmartCutY(analysisCtx, img.width, img.height, preferredEnd, searchRadius);
+          end = Math.max(start + 1, Math.min(img.height, smartY));
+        }
+
+        ranges.push({ start, end });
+        if (end >= img.height) {
+          break;
+        }
+
+        start = Math.max(0, end - safeOverlap);
+      }
+
+      return ranges;
+    }
+
+    function drawSourcePreview(img, ranges) {
+      const ctx = sourcePreviewCanvas.getContext('2d');
+      const maxPreviewHeight = 280;
+      const maxPreviewWidth = 520;
+      const scale = Math.min(1, maxPreviewHeight / img.height, maxPreviewWidth / img.width);
+      const previewWidth = Math.max(1, Math.round(img.width * scale));
+      const previewHeight = Math.max(1, Math.round(img.height * scale));
+
+      sourcePreviewCanvas.width = previewWidth;
+      sourcePreviewCanvas.height = previewHeight;
+      ctx.clearRect(0, 0, previewWidth, previewHeight);
+      ctx.drawImage(img, 0, 0, previewWidth, previewHeight);
+
+      ctx.strokeStyle = '#7aa2ff';
+      ctx.lineWidth = 2;
+      ctx.fillStyle = 'rgba(122, 162, 255, 0.14)';
+      ctx.font = '12px sans-serif';
+
+      ranges.forEach((range, idx) => {
+        const y = Math.round(range.start * scale);
+        const h = Math.max(1, Math.round((range.end - range.start) * scale));
+        ctx.fillRect(0, y, previewWidth, h);
+        ctx.strokeRect(0, y, previewWidth, h);
+        ctx.fillStyle = '#7aa2ff';
+        ctx.fillText(`#${idx + 1}`, 10, Math.min(previewHeight - 8, y + 16));
+        ctx.fillStyle = 'rgba(122, 162, 255, 0.14)';
+      });
+
+      sourcePreviewEmpty.style.display = 'none';
+    }
+
+    function splitImage(img, targetChunkHeight, overlap, mode) {
+      const ranges = mode === 'smart'
+        ? getSmartCutRanges(img, targetChunkHeight, overlap)
+        : getCutRanges(img.height, targetChunkHeight, overlap);
+
+      return ranges.map((range, idx) => {
+        const h = range.end - range.start;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, range.start, img.width, h, 0, 0, img.width, h);
+        return {
+          index: idx + 1,
+          start: range.start,
+          end: range.end,
+          height: h,
+          canvas,
+        };
+      });
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function canAttemptClipboardWrite() {
+      return Boolean(window.isSecureContext && navigator.clipboard && window.ClipboardItem);
+    }
+
+    async function copyBlobToClipboard(blob) {
+      if (!canAttemptClipboardWrite()) {
+        throw new Error('当前环境不支持复制图片');
+      }
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob })
+      ]);
+    }
+
+    function createPieceActions(piece) {
+      const actions = document.createElement('div');
+      actions.className = 'file-actions';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'mini-btn';
+      saveBtn.type = 'button';
+      saveBtn.textContent = '保存';
+      saveBtn.addEventListener('click', async () => {
+        try {
+          const blob = await new Promise((resolve) => piece.canvas.toBlob(resolve, 'image/png'));
+          if (!blob) {
+            throw new Error('图片数据为空');
+          }
+          downloadBlob(blob, `${sourceName}_part_${String(piece.index).padStart(2, '0')}.png`);
+          setStatus(`已保存：第 ${piece.index} 张`);
+          hideError();
+        } catch (error) {
+          const msg = `保存失败：${error?.message || '浏览器不支持'}`;
+          setStatus(msg);
+          showError(msg);
+        }
+      });
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'mini-btn';
+      copyBtn.type = 'button';
+      copyBtn.textContent = '复制图片';
+
+      if (!canAttemptClipboardWrite()) {
+        copyBtn.disabled = true;
+        copyBtn.title = '当前页面环境不支持复制图片';
+      }
+
+      copyBtn.addEventListener('click', async () => {
+        try {
+          const blob = await new Promise((resolve) => piece.canvas.toBlob(resolve, 'image/png'));
+          if (!blob) {
+            throw new Error('图片数据为空');
+          }
+          await copyBlobToClipboard(blob);
+          setStatus(`已复制：第 ${piece.index} 张`);
+          hideError();
+        } catch (error) {
+          const msg = '当前页面环境禁止复制图片，请改用“保存”';
+          setStatus(msg);
+          showError(msg);
+        }
+      });
+
+      actions.appendChild(saveBtn);
+      actions.appendChild(copyBtn);
+      return actions;
+    }
+
+    function renderPieces() {
+      preview.innerHTML = '';
+
+      pieces.forEach((piece) => {
+        const box = document.createElement('div');
+        box.className = 'piece';
+
+        const head = document.createElement('div');
+        head.className = 'piece-head';
+
+        const headLeft = document.createElement('div');
+        headLeft.className = 'piece-head-left';
+        const title = document.createElement('span');
+        title.textContent = `第 ${piece.index} 张`;
+        const meta = document.createElement('span');
+        meta.textContent = `Y: ${piece.start} - ${piece.end} / 高 ${piece.height}px`;
+        headLeft.appendChild(title);
+        headLeft.appendChild(meta);
+
+        const headRight = document.createElement('div');
+        headRight.className = 'piece-head-right';
+        headRight.appendChild(createPieceActions(piece));
+
+        head.appendChild(headLeft);
+        head.appendChild(headRight);
+
+        const body = document.createElement('div');
+        body.appendChild(piece.canvas);
+
+        box.appendChild(head);
+        box.appendChild(body);
+        preview.appendChild(box);
+      });
+    }
+
+    function rerenderIfReady() {
+      if (!loadedImage) return;
+      const { chunkHeight, overlap, mode } = getSettings();
+      pieces = splitImage(loadedImage, chunkHeight, overlap, mode);
+      const ranges = pieces.map((piece) => ({ start: piece.start, end: piece.end }));
+      drawSourcePreview(loadedImage, ranges);
+      renderPieces();
+      metaEl.textContent = `原图 ${loadedImage.width} × ${loadedImage.height}px，共切出 ${pieces.length} 张`;
+      setStatus(`切分完成：共 ${pieces.length} 张，预览已更新`);
+      downloadBtn.disabled = pieces.length === 0;
+      copyAllBtn.disabled = pieces.length === 0 || !canAttemptClipboardWrite();
+    }
+
+    function clearPreviewCanvas() {
+      const ctx = sourcePreviewCanvas.getContext('2d');
+      ctx.clearRect(0, 0, sourcePreviewCanvas.width, sourcePreviewCanvas.height);
+      sourcePreviewEmpty.style.display = 'flex';
+    }
+
+    function loadImageFromURL(url, name) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => {
+        hideError();
+        loadedImage = img;
+        sourceName = name || 'image';
+        splitBtn.disabled = false;
+        downloadBtn.disabled = true;
+        copyAllBtn.disabled = true;
+        preview.innerHTML = '';
+        metaEl.textContent = `已加载：${img.width} × ${img.height}px`;
+        setStatus('图片已导入，正在自动切分…');
+        rerenderIfReady();
+      };
+      img.onerror = () => {
+        loadedImage = null;
+        pieces = [];
+        splitBtn.disabled = true;
+        downloadBtn.disabled = true;
+        copyAllBtn.disabled = true;
+        preview.innerHTML = '';
+        metaEl.textContent = '图片读取失败';
+        clearPreviewCanvas();
+        const msg = '图片加载失败：文件可能已损坏、格式不受支持，或浏览器未成功读取该图片';
+        setStatus(msg);
+        showError(msg);
+      };
+      img.src = url;
+    }
+
+    function loadFile(file) {
+      if (!file) return;
+      if (!file.type || !file.type.startsWith('image/')) {
+        const msg = '加载失败：请选择图片文件';
+        setStatus(msg);
+        showError(msg);
+        return;
+      }
+
+      const name = (file.name || 'image').replace(/\.[^.]+$/, '');
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        if (typeof reader.result !== 'string') {
+          const msg = '图片读取失败：浏览器没有返回可用的数据';
+          setStatus(msg);
+          showError(msg);
+          return;
+        }
+        loadImageFromURL(reader.result, name);
+      };
+
+      reader.onerror = () => {
+        const msg = '图片读取失败：FileReader 读取异常';
+        setStatus(msg);
+        showError(msg);
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    function stitchAllCanvases() {
+      if (!pieces.length) {
+        throw new Error('当前没有可拼接的图片');
+      }
+      const totalHeight = pieces.reduce((sum, p) => sum + p.height, 0);
+      const width = pieces[0].canvas.width;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = totalHeight;
+      const ctx = canvas.getContext('2d');
+      let y = 0;
+      pieces.forEach((piece) => {
+        ctx.drawImage(piece.canvas, 0, y);
+        y += piece.height;
+      });
+      return canvas;
+    }
+
+    fileInput.addEventListener('change', (e) => {
+      loadFile(e.target.files && e.target.files[0]);
+      e.target.value = '';
+    });
+
+    ['dragenter', 'dragover'].forEach((evt) => {
+      drop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        drop.classList.add('active');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach((evt) => {
+      drop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        drop.classList.remove('active');
+      });
+    });
+
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      loadFile(file);
+    });
+
+    chunkHeightInput.addEventListener('input', () => {
+      syncLabels();
+      rerenderIfReady();
+    });
+
+    overlapInput.addEventListener('input', () => {
+      syncLabels();
+      rerenderIfReady();
+    });
+
+    modeSelect.addEventListener('change', () => {
+      updateModeUI();
+      syncLabels();
+      rerenderIfReady();
+    });
+
+    splitBtn.addEventListener('click', () => {
+      if (!loadedImage) return;
+      setStatus('正在重新切分…');
+      rerenderIfReady();
+    });
+
+    downloadBtn.addEventListener('click', async () => {
+      if (!pieces.length) return;
+
+      hideError();
+      setStatus('正在准备下载…');
+
+      try {
+        if (window.JSZip) {
+          const zip = new JSZip();
+          const folder = zip.folder(sourceName || 'split_images');
+
+          pieces.forEach((piece) => {
+            const dataUrl = piece.canvas.toDataURL('image/png');
+            const base64 = dataUrl.split(',')[1];
+            folder.file(`${sourceName}_part_${String(piece.index).padStart(2, '0')}.png`, base64, { base64: true });
+          });
+
+          const blob = await zip.generateAsync({ type: 'blob' });
+          downloadBlob(blob, `${sourceName || 'split_images'}.zip`);
+          setStatus(`下载完成：共 ${pieces.length} 张`);
+          return;
+        }
+
+        for (let i = 0; i < pieces.length; i += 1) {
+          const piece = pieces[i];
+          const blob = await new Promise((resolve) => piece.canvas.toBlob(resolve, 'image/png'));
+          if (!blob) {
+            throw new Error(`第 ${piece.index} 张图片数据为空`);
+          }
+          downloadBlob(blob, `${sourceName}_part_${String(piece.index).padStart(2, '0')}.png`);
+          await new Promise((resolve) => setTimeout(resolve, 220));
+        }
+        setStatus(`下载完成：共 ${pieces.length} 张`);
+      } catch (error) {
+        const msg = `下载失败：${error?.message || '浏览器阻止了下载'}`;
+        setStatus(msg);
+        showError(msg);
+      }
+    });
+
+    copyAllBtn.addEventListener('click', async () => {
+      if (!pieces.length) return;
+      try {
+        const merged = stitchAllCanvases();
+        const blob = await new Promise((resolve) => merged.toBlob(resolve, 'image/png'));
+        if (!blob) {
+          throw new Error('合成图片失败');
+        }
+        await copyBlobToClipboard(blob);
+        setStatus('已复制整张拼接图');
+        hideError();
+      } catch (error) {
+        const msg = '复制失败：当前环境不支持，请改用“下载全部”';
+        setStatus(msg);
+        showError(msg);
+      }
+    });
+
+    demoBtn.addEventListener('click', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 900;
+      canvas.height = 3600;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#101828';
+      ctx.font = 'bold 34px sans-serif';
+      ctx.fillText('演示长图', 40, 70);
+      ctx.font = '22px sans-serif';
+      let y = 130;
+      for (let i = 0; i < 34; i += 1) {
+        if (i % 5 === 0) y += 36;
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(40, y - 24, 820, 52);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(`第 ${i + 1} 段：这是一段用于测试切分效果的演示内容。`, 56, y + 8);
+        y += 86;
+      }
+      loadImageFromURL(canvas.toDataURL('image/png'), 'demo');
+    });
+
+    function runTests() {
+      const tests = [];
+      const add = (name, ok) => tests.push({ name, ok: Boolean(ok) });
+
+      add('DOM nodes exist', !!fileInput && !!preview && !!sourcePreviewCanvas && !!downloadBtn && !!copyAllBtn);
+      add('Action factory exists', typeof createPieceActions === 'function');
+      add('Blob downloader exists', typeof downloadBlob === 'function');
+      add('Clipboard capability detector exists', typeof canAttemptClipboardWrite === 'function');
+      add('Render function exists', typeof renderPieces === 'function');
+      add('Canvas stitcher exists', typeof stitchAllCanvases === 'function');
+
+      const testBlob = new Blob(['abc'], { type: 'text/plain' });
+      add('Blob object can be created for download flow', testBlob.size === 3);
+
+      const fixed = getCutRanges(3000, 1000, 100);
+      add('Fixed mode returns multiple slices', fixed.length === 4);
+      add('Fixed mode covers bottom edge', fixed[fixed.length - 1].end === 3000);
+
+      const zeroOverlap = getCutRanges(3600, 1400, 0);
+      add('Zero overlap advances by chunk height', zeroOverlap[1].start === 1400);
+
+      const fakeCanvas = document.createElement('canvas');
+      fakeCanvas.width = 80;
+      fakeCanvas.height = 300;
+      const fakeCtx = fakeCanvas.getContext('2d');
+      fakeCtx.fillStyle = '#ffffff';
+      fakeCtx.fillRect(0, 0, 80, 300);
+      fakeCtx.fillStyle = '#222222';
+      fakeCtx.fillRect(0, 90, 80, 24);
+      fakeCtx.fillRect(0, 190, 80, 24);
+      const smartRanges = getSmartCutRanges(fakeCanvas, 100, 20);
+      add('Smart mode returns positive heights', smartRanges.every((item) => item.end > item.start));
+      add('Smart mode hides overlap field initially', modeSelect.value === 'smart');
+
+      pieces = [
+        { index: 1, start: 0, end: 10, height: 10, canvas: document.createElement('canvas') },
+        { index: 2, start: 10, end: 20, height: 10, canvas: document.createElement('canvas') },
+      ];
+      pieces[0].canvas.width = 20;
+      pieces[0].canvas.height = 10;
+      pieces[1].canvas.width = 20;
+      pieces[1].canvas.height = 10;
+      const stitched = stitchAllCanvases();
+      add('Stitch result height matches sum', stitched.height === 20);
+      add('Stitch result width matches piece width', stitched.width === 20);
+      pieces = [];
+
+      const failed = tests.filter((item) => !item.ok);
+      if (failed.length > 0) {
+        console.warn('Self-check failed:', failed);
+      }
+    }
+
+    window.addEventListener('error', (event) => {
+      const msg = event?.error?.message || event.message || '页面发生未知错误';
+      setStatus(`发生错误：${msg}`);
+      showError(`发生错误：${msg}`);
+    });
+
+    updateModeUI();
+    syncLabels();
+    clearPreviewCanvas();
+    hideError();
+    setStatus('等待导入图片');
+    runTests();
+  </script>
+</body>
+</html>
